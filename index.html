@@ -115,6 +115,15 @@
     border-radius:999px; padding:13px 34px; font-size:16px; font-weight:800; cursor:pointer;}
   .empty{text-align:center; color:var(--sub); font-size:14px; padding:24px 10px; line-height:1.7;}
   .save-note{font-size:12px; color:var(--sub); text-align:center; margin-top:8px;}
+  /* メモ */
+  .btn-fab{display:block; width:100%; border:none; border-radius:14px; padding:14px;
+    font-size:15px; font-weight:700; cursor:pointer; background:var(--blue-soft); color:var(--blue); margin-bottom:14px;}
+  .memo-item{border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; background:var(--card);}
+  .memo-item .meta{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+  .memo-item .when{font-size:11.5px; color:var(--sub); font-weight:700;}
+  .memo-item .gtag{font-size:11px; font-weight:800; border-radius:999px; padding:2px 10px; color:#fff;}
+  .memo-item .txt{font-size:14.5px; line-height:1.7; white-space:pre-wrap;}
+  .memo-item .memo-del{border:none; background:none; color:#c0a89a; font-size:16px; cursor:pointer; padding:2px 4px;}
 </style>
 </head>
 <body>
@@ -141,6 +150,22 @@
     <div class="muted">どんな週でも、戻ってくれば必ずリカバリーできます。</div>
   </div>
   <button class="btn btn-primary" onclick="go('review')">📝 今週の振り返りを始める（15分）</button>
+  <button class="btn-fab" onclick="go('memo')">🗒️ 今すぐメモする</button>
+</div>
+
+<!-- ===== メモ ===== -->
+<div class="page" id="page-memo">
+  <div class="card">
+    <h2>🗒️ 今すぐメモ</h2>
+    <div class="muted" style="margin-bottom:10px">気づいたこと・やったことを、その場でメモ。週の振り返りで見返せます。</div>
+    <div class="chips" id="memoGoalChips"></div>
+    <div class="ta-wrap">
+      <textarea id="memoText" placeholder="例：見込み客からいい反応があった／今日は集中できた"></textarea>
+      <button class="mic" onclick="mic(this,'memoText')">🎤</button>
+    </div>
+    <button class="btn btn-primary" style="margin-top:10px" onclick="saveMemo()">💾 メモを保存</button>
+  </div>
+  <div id="memoList"></div>
 </div>
 
 <!-- ===== 目標設定 ===== -->
@@ -196,6 +221,7 @@
   <div class="card">
     <h2>📝 今週の振り返り <span class="muted" id="reviewWeekLabel"></span></h2>
     <div class="muted">週1回、上から順に答えるだけ。🎤ボタンで音声入力もできます。</div>
+    <div id="reviewMemoRef"></div>
 
     <div class="step">
       <div class="n">STEP 0</div>
@@ -269,6 +295,7 @@
 <nav>
   <button id="tab-home" class="act" onclick="go('home')"><span class="ic">🏠</span>ホーム</button>
   <button id="tab-goals" onclick="go('goals')"><span class="ic">🎯</span>目標</button>
+  <button id="tab-memo" onclick="go('memo')"><span class="ic">🗒️</span>メモ</button>
   <button id="tab-review" onclick="go('review')"><span class="ic">📝</span>振り返り</button>
   <button id="tab-history" onclick="go('history')"><span class="ic">📚</span>履歴</button>
 </nav>
@@ -288,7 +315,7 @@ let S = load();
 function load(){
   try{
     const v2 = JSON.parse(localStorage.getItem(KEY) || "null");
-    if(v2) return Object.assign({goals:[], reviews:[]}, v2);
+    if(v2) return Object.assign({goals:[], reviews:[], notes:[]}, v2);
   }catch(e){}
   // v1（単一目標版）からの引き継ぎ
   try{
@@ -299,12 +326,12 @@ function load(){
         setAt:(v1.yearGoal||{}).setAt||"", monthGoals:v1.monthGoals||{}, weekGoals:v1.weekGoals||{} };
       const reviews = (v1.reviews||[]).map(r=>({ weekKey:r.weekKey, range:r.range, date:r.date,
         q1:r.q1, q2:r.q2, q3:r.q3, q4:r.q4, perGoal:{ g1:{ pct:r.pct, note:r.q5||"" } } }));
-      const s = { goals:[g], reviews:reviews };
+      const s = { goals:[g], reviews:reviews, notes:[] };
       localStorage.setItem(KEY, JSON.stringify(s));
       return s;
     }
   }catch(e){}
-  return { goals:[], reviews:[] };
+  return { goals:[], reviews:[], notes:[] };
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(S)); }
 function newGoal(){
@@ -366,6 +393,7 @@ function go(p){
   document.getElementById("tab-"+p).classList.add("act");
   if(p==="home") renderHome();
   if(p==="goals") renderGoals();
+  if(p==="memo") renderMemo();
   if(p==="review") renderReview();
   if(p==="history") renderHistory();
   window.scrollTo(0,0);
@@ -533,10 +561,63 @@ function saveGoals(){
   go("home");
 }
 
+/* ========== メモ ========== */
+let curMemoGoalId = ""; // ""=どの目標にも紐づけない
+function renderMemo(){
+  document.getElementById("memoGoalChips").innerHTML =
+    `<button class="${curMemoGoalId===''?'sel':''}" onclick="selectMemoGoal('')"><span class="dot" style="background:#bbb"></span>なし</button>`
+    + S.goals.map(g=>`<button class="${curMemoGoalId===g.id?'sel':''}" style="color:${gcolor(g)}"
+        onclick="selectMemoGoal('${g.id}')"><span class="dot" style="background:${gcolor(g)}"></span>${esc(g.name||"目標")}</button>`).join("");
+  renderMemoList();
+}
+function selectMemoGoal(id){ curMemoGoalId = id; renderMemo(); }
+function saveMemo(){
+  const text = document.getElementById("memoText").value.trim();
+  if(!text) return;
+  S.notes = S.notes || [];
+  S.notes.unshift({ id:"n"+Date.now().toString(36), at:new Date().toISOString(), goalId:curMemoGoalId, text:text });
+  save();
+  document.getElementById("memoText").value = "";
+  renderMemoList();
+}
+function deleteMemo(id){
+  S.notes = (S.notes||[]).filter(n=>n.id!==id);
+  save(); renderMemoList();
+}
+function fmtDateTime(iso){
+  const d = new Date(iso);
+  return (d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
+function renderMemoList(){
+  const list = S.notes || [];
+  const box = document.getElementById("memoList");
+  if(!list.length){ box.innerHTML = '<div class="empty">まだメモがありません。気づいたことをその場で残しておきましょう。</div>'; return; }
+  box.innerHTML = list.map(n=>{
+    const g = n.goalId ? S.goals.find(x=>x.id===n.goalId) : null;
+    const tag = g ? `<span class="gtag" style="background:${gcolor(g)}">${esc(g.name||"目標")}</span>` : "";
+    return `<div class="memo-item">
+      <div class="meta"><span class="when">${fmtDateTime(n.at)}</span>
+        <span style="display:flex;align-items:center;gap:8px">${tag}<button class="memo-del" onclick="deleteMemo('${n.id}')">✕</button></span></div>
+      <div class="txt">${esc(n.text)}</div>
+    </div>`;
+  }).join("");
+}
+
 /* ========== 振り返り ========== */
 function renderReview(){
   document.getElementById("reviewWeekLabel").textContent = "（"+weekRangeLabel(now)+"）";
   const done = S.reviews.find(r=>r.weekKey===thisWeek);
+  // 今週分のメモを参照表示
+  const weekNotes = (S.notes||[]).filter(n=>weekKey(n.at)===thisWeek);
+  const refBox = document.getElementById("reviewMemoRef");
+  refBox.innerHTML = weekNotes.length
+    ? `<div class="goal-label" style="color:var(--blue)">🗒️ 今週のメモ（振り返りの材料に）</div>`
+      + weekNotes.map(n=>{
+          const g = n.goalId ? S.goals.find(x=>x.id===n.goalId) : null;
+          const tag = g ? `<span class="gtag" style="background:${gcolor(g)}">${esc(g.name||"目標")}</span> ` : "";
+          return `<div class="memo-item"><div class="meta"><span class="when">${fmtDateTime(n.at)}</span>${tag?`<span>${tag}</span>`:""}</div><div class="txt">${esc(n.text)}</div></div>`;
+        }).join("")
+    : "";
   // STEP0：目標ごとの%スライダー
   const pctBox = document.getElementById("rvPctList");
   if(!S.goals.length){

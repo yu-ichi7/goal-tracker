@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>週間5% 目標達成アプリ</title>
+<style>
+  :root{
+    --accent:#ff7a1a; --accent-soft:#fff1e6; --ink:#2b2620; --sub:#8a8178;
+    --bg:#faf7f2; --card:#ffffff; --line:#efe8df; --good:#2fa36b; --good-soft:#e7f6ee;
+    --blue:#3b6fd4; --blue-soft:#ecf2fd;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--ink); padding-bottom:calc(76px + env(safe-area-inset-bottom));}
+  header{background:linear-gradient(135deg,#ff8c2e,#ff6a00); color:#fff;
+    padding:calc(14px + env(safe-area-inset-top)) 18px 14px;}
+  header h1{margin:0; font-size:17px; letter-spacing:.04em;}
+  header .quote{margin-top:8px; background:rgba(255,255,255,.16); border-radius:12px;
+    padding:10px 12px; font-size:13.5px; line-height:1.6; font-weight:600;}
+  main{padding:16px 16px 8px; max-width:640px; margin:0 auto;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:14px; box-shadow:0 1px 4px rgba(60,40,20,.05);}
+  .card h2{margin:0 0 10px; font-size:14px; color:var(--sub); font-weight:700; letter-spacing:.05em;}
+  .big{font-size:17px; font-weight:700; line-height:1.5; white-space:pre-wrap;}
+  .muted{color:var(--sub); font-size:13px;}
+  .tag{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:800;
+    border-radius:999px; padding:3px 12px; color:#fff; margin-bottom:8px;}
+  .dot{display:inline-block; width:9px; height:9px; border-radius:50%; flex:none;}
+  .bar{height:10px; background:#f0e9e0; border-radius:999px; overflow:hidden; margin:8px 0 4px;}
+  .bar>i{display:block; height:100%; border-radius:999px; transition:width .4s;}
+  button{font-family:inherit;}
+  .btn{display:block; width:100%; border:none; border-radius:14px; padding:15px;
+    font-size:16px; font-weight:700; cursor:pointer;}
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-ghost{background:#fff; color:var(--accent); border:2px solid var(--accent);}
+  .btn-small{width:auto; padding:8px 14px; font-size:13px; border-radius:10px;}
+  .btn-danger{background:none; border:none; color:#c0392b; font-size:13px; font-weight:700;
+    cursor:pointer; padding:10px; width:100%;}
+  textarea,input[type=text],input[type=date],input[type=number]{
+    width:100%; border:1.5px solid var(--line); border-radius:12px; padding:12px;
+    font-size:16px; font-family:inherit; background:#fffdfa; color:var(--ink);}
+  textarea{min-height:88px; resize:vertical; line-height:1.6;}
+  textarea.sm{min-height:64px;}
+  textarea:focus,input:focus{outline:none; border-color:var(--accent);}
+  label.fld{display:block; font-size:13px; font-weight:700; color:var(--sub); margin:12px 0 6px;}
+  /* 目標チップ */
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
+  .chips button{border:2px solid var(--line); background:#fff; border-radius:999px;
+    padding:8px 16px; font-size:14px; font-weight:700; cursor:pointer; color:var(--sub);
+    display:inline-flex; align-items:center; gap:7px;}
+  .chips button.sel{border-color:currentColor;}
+  .chips .add{color:var(--accent); border-style:dashed;}
+  /* 週の目標行 */
+  .goal-row{display:flex; gap:8px; align-items:flex-start; margin-bottom:8px;}
+  .goal-row .what{flex:1;}
+  .goal-row .cnt{width:74px;}
+  .goal-row .del{border:none; background:#f6efe7; color:#b0a596; border-radius:10px;
+    width:40px; height:46px; font-size:18px; cursor:pointer; flex:none;}
+  .goal-check{display:flex; align-items:center; gap:10px; padding:12px; border:1.5px solid var(--line);
+    border-radius:12px; margin-bottom:8px; background:#fffdfa;}
+  .goal-check.done{background:var(--good-soft); border-color:#bfe5cf;}
+  .goal-check input{width:22px; height:22px; accent-color:var(--good); flex:none;}
+  .goal-check .t{flex:1; font-size:15px; line-height:1.5;}
+  .goal-check .t small{display:block; color:var(--sub);}
+  .goal-check .gname{font-size:11px; font-weight:800; display:inline-flex; align-items:center; gap:5px; margin-bottom:2px;}
+  /* 振り返りステップ */
+  .step{border-left:4px solid var(--accent); padding-left:12px; margin:18px 0 6px;}
+  .step .n{font-size:12px; color:var(--accent); font-weight:800;}
+  .step .q{font-size:15.5px; font-weight:700; margin-top:2px; line-height:1.5;}
+  .step .hint{font-size:12.5px; color:var(--sub); margin-top:2px;}
+  .ta-wrap{position:relative; margin-top:8px;}
+  .ta-wrap textarea{padding-right:56px;}
+  .mic{position:absolute; right:8px; top:8px; width:42px; height:42px; border-radius:50%;
+    border:none; background:var(--blue-soft); color:var(--blue); font-size:19px; cursor:pointer;}
+  .mic.on{background:#ff3b30; color:#fff; animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+  .slider-row{display:flex; align-items:center; gap:12px; margin-top:6px;}
+  input[type=range]{flex:1; accent-color:var(--accent); height:32px;}
+  .pct{font-size:20px; font-weight:800; color:var(--accent); min-width:64px; text-align:right;}
+  .goal-label{font-size:13px; font-weight:800; margin-top:12px; display:flex; align-items:center; gap:6px;}
+  /* タブバー */
+  nav{position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--line);
+    display:flex; padding-bottom:env(safe-area-inset-bottom); z-index:50;}
+  nav button{flex:1; border:none; background:none; padding:9px 0 7px; font-size:10.5px;
+    color:var(--sub); cursor:pointer; font-weight:700;}
+  nav button .ic{display:block; font-size:21px; margin-bottom:2px;}
+  nav button.act{color:var(--accent);}
+  .page{display:none;} .page.act{display:block;}
+  /* 履歴 */
+  details.rev{background:var(--card); border:1px solid var(--line); border-radius:14px;
+    margin-bottom:10px; overflow:hidden;}
+  details.rev summary{padding:14px; font-weight:700; font-size:14.5px; cursor:pointer; list-style:none;
+    display:flex; justify-content:space-between; align-items:center;}
+  details.rev summary::-webkit-details-marker{display:none;}
+  details.rev .body{padding:0 14px 14px; font-size:14px;}
+  details.rev .body h4{margin:12px 0 4px; font-size:12.5px; color:var(--accent);}
+  details.rev .body p{margin:0; white-space:pre-wrap; line-height:1.6;}
+  .badge-pct{font-size:13px; font-weight:800; border-radius:999px; padding:3px 10px;}
+  .badge-pct.full{background:var(--good-soft); color:var(--good);}
+  .badge-pct.part{background:var(--accent-soft); color:var(--accent);}
+  .streak{font-size:15px; font-weight:800;}
+  .month-nav{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .month-nav button{border:none; background:var(--accent-soft); color:var(--accent);
+    border-radius:10px; width:38px; height:38px; font-size:16px; font-weight:800; cursor:pointer;}
+  .month-nav .m{font-weight:800; font-size:15px;}
+  /* 完了オーバーレイ */
+  #cheer{position:fixed; inset:0; background:rgba(255,106,0,.94); color:#fff; z-index:100;
+    display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:30px;}
+  #cheer.show{display:flex;}
+  #cheer .emoji{font-size:64px;}
+  #cheer h2{font-size:26px; margin:14px 0 8px;}
+  #cheer p{font-size:15.5px; line-height:1.7; max-width:420px; white-space:pre-wrap;}
+  #cheer button{margin-top:24px; background:#fff; color:var(--accent); border:none;
+    border-radius:999px; padding:13px 34px; font-size:16px; font-weight:800; cursor:pointer;}
+  .empty{text-align:center; color:var(--sub); font-size:14px; padding:24px 10px; line-height:1.7;}
+  .save-note{font-size:12px; color:var(--sub); text-align:center; margin-top:8px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏔 週間5% 目標達成アプリ</h1>
+  <div class="quote" id="quoteBox"></div>
+</header>
+
+<main>
+
+<!-- ===== ホーム ===== -->
+<div class="page act" id="page-home">
+  <div id="homeGoalCards"></div>
+  <div class="card">
+    <h2>📝 今週のプロセス目標 <span class="muted" id="homeWeekLabel"></span></h2>
+    <div id="homeWeekGoals"></div>
+    <div class="bar"><i id="homeWeekBar" style="background:linear-gradient(90deg,#ffb26b,#ff6a00)"></i></div>
+    <div class="muted"><span id="homeWeekPct">0</span>% 達成（チェックを入れると更新されます）</div>
+  </div>
+  <div class="card">
+    <h2>🔥 継続記録</h2>
+    <div class="streak" id="homeStreak">振り返り 0週連続</div>
+    <div class="muted">どんな週でも、戻ってくれば必ずリカバリーできます。</div>
+  </div>
+  <button class="btn btn-primary" onclick="go('review')">📝 今週の振り返りを始める（15分）</button>
+</div>
+
+<!-- ===== 目標設定 ===== -->
+<div class="page" id="page-goals">
+  <div class="card">
+    <h2>🎯 目標を選ぶ（複数OK）</h2>
+    <div class="chips" id="goalChips"></div>
+    <label class="fld">この目標の名前</label>
+    <input type="text" id="inGoalName" placeholder="例：ビジネス／健康／英語">
+  </div>
+
+  <div class="card">
+    <h2>STEP 1｜🏔 1年後の目標（結果目標）</h2>
+    <label class="fld">どうなっていたい？</label>
+    <div class="ta-wrap">
+      <textarea id="inYearGoal" placeholder="例：月の売上を30万円にする／体重を−10kgにする"></textarea>
+      <button class="mic" onclick="mic(this,'inYearGoal')">🎤</button>
+    </div>
+    <label class="fld">達成期限</label>
+    <input type="date" id="inYearDate">
+  </div>
+
+  <div class="card">
+    <h2>STEP 2｜📅 月の目標（マイルストーン）</h2>
+    <div class="month-nav">
+      <button onclick="moveMonth(-1)">‹</button>
+      <span class="m" id="monthLabel"></span>
+      <button onclick="moveMonth(1)">›</button>
+    </div>
+    <div class="ta-wrap">
+      <textarea id="inMonthGoal" placeholder="例：見込み客に提案を10件出して、1件受注する"></textarea>
+      <button class="mic" onclick="mic(this,'inMonthGoal')">🎤</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>STEP 3｜📝 今週のプロセス目標 <span class="muted" id="goalsWeekLabel"></span></h2>
+    <div class="muted" style="margin-bottom:10px">
+      「意識すればできること」に砕くのがコツ。<b>何を・何件・いつ</b>まで具体的に！<br>
+      ❌ 営業を頑張る　→　✅ 月曜9〜10時に、◯◯サイトへ提案文を10件送る
+    </div>
+    <div id="weekGoalRows"></div>
+    <button class="btn btn-ghost btn-small" onclick="addGoalRow()">＋ 目標を追加</button>
+  </div>
+
+  <button class="btn btn-primary" onclick="saveGoals()">💾 この目標を保存する</button>
+  <button class="btn-danger" onclick="deleteGoal()">この目標を削除する</button>
+  <div class="save-note">保存すると、ホーム画面と振り返りに反映されます</div>
+</div>
+
+<!-- ===== 振り返り ===== -->
+<div class="page" id="page-review">
+  <div class="card">
+    <h2>📝 今週の振り返り <span class="muted" id="reviewWeekLabel"></span></h2>
+    <div class="muted">週1回、上から順に答えるだけ。🎤ボタンで音声入力もできます。</div>
+
+    <div class="step">
+      <div class="n">STEP 0</div>
+      <div class="q">✅ プロセス目標、何%できた？（目標ごと）</div>
+      <div class="hint">まず「毎週100%」がスタンダード。無理なくできる目標に調整してでも100%を守ろう。</div>
+      <div id="rvPctList"></div>
+    </div>
+
+    <div class="step">
+      <div class="n">STEP 1</div>
+      <div class="q">🎉 今週できたこと・達成したことは？</div>
+      <div class="hint">できなかったことからではなく、自己承認から。小さなことでOK。マジ天才！</div>
+      <div class="ta-wrap">
+        <textarea id="rvQ1" placeholder="例：提案文のテンプレートを作れた／毎朝15分の掃除を続けられた"></textarea>
+        <button class="mic" onclick="mic(this,'rvQ1')">🎤</button>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">STEP 2</div>
+      <div class="q">💡 気づいたこと・学んだことは？</div>
+      <div class="hint">ノウハウ面でもマインド面でもOK。止まって考えないと気づけないことがある。</div>
+      <div class="ta-wrap">
+        <textarea id="rvQ2" placeholder="例：朝に作業すると集中できると気づいた"></textarea>
+        <button class="mic" onclick="mic(this,'rvQ2')">🎤</button>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">STEP 3</div>
+      <div class="q">🚀 今週できた「新しい行動・チャレンジ」は？</div>
+      <div class="hint">大それたことでなくていい。小さな新しい一歩が成長の速度を決める。</div>
+      <div class="ta-wrap">
+        <textarea id="rvQ3" placeholder="例：初めて◯◯に問い合わせしてみた"></textarea>
+        <button class="mic" onclick="mic(this,'rvQ3')">🎤</button>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">STEP 4</div>
+      <div class="q">🔄 もう一度この1週間をやり直すなら、何をする？</div>
+      <div class="hint">究極の振り返りの質問。うまくいかなかったことは、どうすればうまくいく？わからなければ「誰に聞くか」を書けばOK。</div>
+      <div class="ta-wrap">
+        <textarea id="rvQ4" placeholder="例：返信率が低かったので、件名を3パターン試す"></textarea>
+        <button class="mic" onclick="mic(this,'rvQ4')">🎤</button>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">STEP 5</div>
+      <div class="q">📈 それぞれの目標に、どれだけ近づいた？</div>
+      <div class="hint">数字で確認しよう（送った件数・返信率・商談数など）。ペースが遅れていたら、どんな改善行動を入れる？</div>
+      <div id="rvNoteList"></div>
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="saveReview()">✅ 振り返りを保存する</button>
+  <div class="save-note">保存後、来週のプロセス目標の設定に進みます</div>
+</div>
+
+<!-- ===== 履歴 ===== -->
+<div class="page" id="page-history">
+  <div class="card">
+    <h2>📚 振り返りの履歴</h2>
+    <div class="muted">失敗は、振り返りがあれば全部「成功のもと」。積み重ねを見返そう。</div>
+  </div>
+  <div id="historyList"></div>
+</div>
+
+</main>
+
+<nav>
+  <button id="tab-home" class="act" onclick="go('home')"><span class="ic">🏠</span>ホーム</button>
+  <button id="tab-goals" onclick="go('goals')"><span class="ic">🎯</span>目標</button>
+  <button id="tab-review" onclick="go('review')"><span class="ic">📝</span>振り返り</button>
+  <button id="tab-history" onclick="go('history')"><span class="ic">📚</span>履歴</button>
+</nav>
+
+<div id="cheer">
+  <div class="emoji">🎉</div>
+  <h2>マジ天才！</h2>
+  <p id="cheerMsg"></p>
+  <button onclick="closeCheer()">来週の目標を決める →</button>
+</div>
+
+<script>
+/* ========== データ ========== */
+const KEY = "goal5pct-v2";
+const PALETTE = ["#ff6a00","#3b6fd4","#2fa36b","#a54ad4","#d43b6f","#0e95b5"];
+let S = load();
+function load(){
+  try{
+    const v2 = JSON.parse(localStorage.getItem(KEY) || "null");
+    if(v2) return Object.assign({goals:[], reviews:[]}, v2);
+  }catch(e){}
+  // v1（単一目標版）からの引き継ぎ
+  try{
+    const v1 = JSON.parse(localStorage.getItem("goal5pct-v1") || "null");
+    if(v1){
+      const g = { id:"g1", name:"メイン目標", color:0,
+        yearText:(v1.yearGoal||{}).text||"", yearDate:(v1.yearGoal||{}).date||"",
+        setAt:(v1.yearGoal||{}).setAt||"", monthGoals:v1.monthGoals||{}, weekGoals:v1.weekGoals||{} };
+      const reviews = (v1.reviews||[]).map(r=>({ weekKey:r.weekKey, range:r.range, date:r.date,
+        q1:r.q1, q2:r.q2, q3:r.q3, q4:r.q4, perGoal:{ g1:{ pct:r.pct, note:r.q5||"" } } }));
+      const s = { goals:[g], reviews:reviews };
+      localStorage.setItem(KEY, JSON.stringify(s));
+      return s;
+    }
+  }catch(e){}
+  return { goals:[], reviews:[] };
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(S)); }
+function newGoal(){
+  const id = "g" + (Date.now().toString(36));
+  return { id:id, name:"", color:S.goals.length % PALETTE.length,
+    yearText:"", yearDate:"", setAt:"", monthGoals:{}, weekGoals:{} };
+}
+function gcolor(g){ return PALETTE[(g.color||0) % PALETTE.length]; }
+
+/* ========== 日付ユーティリティ ========== */
+function weekKey(d){
+  d = new Date(d); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 3 - ((d.getDay()+6)%7));
+  const y = d.getFullYear();
+  const jan4 = new Date(y,0,4);
+  const w = 1 + Math.round(((d - jan4)/864e5 - 3 + ((jan4.getDay()+6)%7)) / 7);
+  return y + "-W" + String(w).padStart(2,"0");
+}
+function weekRangeLabel(d){
+  d = new Date(d);
+  const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay()+6)%7));
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  const f = x => (x.getMonth()+1) + "/" + x.getDate();
+  return f(mon) + "〜" + f(sun);
+}
+function monthKey(d){ d=new Date(d); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+const now = new Date();
+const thisWeek = weekKey(now);
+let editMonth = monthKey(now);
+let curGoalId = null; // 目標タブで選択中
+
+/* ========== やる気の出る言葉 ========== */
+const QUOTES = [
+  "やれることをやろう。プロセス目標は、意識すればできること。",
+  "まず自分を褒めよう。合言葉は「マジ天才」！",
+  "失敗は、振り返りがあれば全部「成功のもと」になる。",
+  "一歩一歩進めば、必ず頂上に着く。止まらないことがいちばん大事。",
+  "結果より、成長にフォーカス。焦らなくていい。",
+  "モチベーションの源は「行動」と「小さな達成感」。",
+  "空振りしていい。一番よくないのは、バットを振らないこと。",
+  "頑張りは無駄にならない。遅れてでも、必ず結果になって返ってくる。",
+  "気分が落ちたら、掃除と運動。すぐ気持ちが上がる。",
+  "チャレンジが怖いのは、振り返りが足りないだけ。",
+  "わからないことがあるのはいい。「わかるためにどう動くか」が大事。",
+  "他人と比べなくていい。比べるのは先週の自分。",
+  "今週が、一番大事な1週間。",
+  "コミットの強さが、達成の強さになる。",
+];
+function weekQuote(){
+  const n = parseInt(thisWeek.slice(-2),10);
+  return QUOTES[n % QUOTES.length];
+}
+
+/* ========== 画面遷移 ========== */
+function go(p){
+  document.querySelectorAll(".page").forEach(x=>x.classList.remove("act"));
+  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("act"));
+  document.getElementById("page-"+p).classList.add("act");
+  document.getElementById("tab-"+p).classList.add("act");
+  if(p==="home") renderHome();
+  if(p==="goals") renderGoals();
+  if(p==="review") renderReview();
+  if(p==="history") renderHistory();
+  window.scrollTo(0,0);
+}
+
+/* ========== ホーム ========== */
+function renderHome(){
+  document.getElementById("quoteBox").textContent = "💬 " + weekQuote();
+  const box = document.getElementById("homeGoalCards");
+  if(!S.goals.length){
+    box.innerHTML = '<div class="card"><h2>🎯 目標</h2><div class="empty">まだ目標がありません。<br>「目標」タブから最初の目標を作りましょう！</div></div>';
+  } else {
+    box.innerHTML = S.goals.map(g=>{
+      let barHtml = "";
+      if(g.yearDate){
+        const end = new Date(g.yearDate), start = new Date(g.setAt || now);
+        const total = Math.max(1, end - start), passed = Math.min(total, Math.max(0, now - start));
+        const pct = Math.round(passed/total*100);
+        const days = Math.max(0, Math.ceil((end - now)/864e5));
+        barHtml = `<div class="bar"><i style="width:${pct}%;background:${gcolor(g)}"></i></div>
+          <div class="muted">期限まで あと${days}日（期間の${pct}%が経過）</div>`;
+      }
+      const mg = (g.monthGoals||{})[monthKey(now)];
+      return `<div class="card">
+        <span class="tag" style="background:${gcolor(g)}">${esc(g.name||"目標")}</span>
+        <div class="big">${esc(g.yearText||"（1年後の目標が未設定）")}</div>
+        ${barHtml}
+        <div class="muted" style="margin-top:8px">📅 今月：${mg?esc(mg):"未設定"}</div>
+      </div>`;
+    }).join("");
+  }
+  // 今週のプロセス目標（全目標まとめて）
+  document.getElementById("homeWeekLabel").textContent = "（"+weekRangeLabel(now)+"）";
+  const items = weekItems();
+  const wg = document.getElementById("homeWeekGoals");
+  if(!items.length){
+    wg.innerHTML = '<div class="empty">今週の目標がまだありません。<br>「目標」タブで決めましょう！</div>';
+  } else {
+    wg.innerHTML = items.map((it,n)=>`
+      <label class="goal-check ${it.item.done?'done':''}">
+        <input type="checkbox" ${it.item.done?'checked':''} onchange="toggleItem('${it.goalId}',${it.idx},this.checked)">
+        <span class="t">
+          ${S.goals.length>1?`<span class="gname" style="color:${it.color}"><span class="dot" style="background:${it.color}"></span>${esc(it.goalName)}</span><br>`:""}
+          ${esc(it.item.what)}${it.item.count?`<small>${esc(it.item.count)}${it.item.when?'・'+esc(it.item.when):''}</small>`:(it.item.when?`<small>${esc(it.item.when)}</small>`:'')}
+        </span>
+      </label>`).join("");
+  }
+  const pct = items.length ? Math.round(items.filter(x=>x.item.done).length/items.length*100) : 0;
+  document.getElementById("homeWeekBar").style.width = pct+"%";
+  document.getElementById("homeWeekPct").textContent = pct;
+  document.getElementById("homeStreak").textContent = "振り返り " + streak() + "週連続";
+}
+function weekItems(){ // 全目標の今週タスクを平らに
+  const out = [];
+  S.goals.forEach(g=>{
+    (g.weekGoals[thisWeek]||[]).forEach((item,idx)=>{
+      out.push({goalId:g.id, goalName:g.name||"目標", color:gcolor(g), idx:idx, item:item});
+    });
+  });
+  return out;
+}
+function toggleItem(goalId, idx, val){
+  const g = S.goals.find(x=>x.id===goalId);
+  if(g && g.weekGoals[thisWeek] && g.weekGoals[thisWeek][idx]) g.weekGoals[thisWeek][idx].done = val;
+  save(); renderHome();
+}
+function streak(){
+  const done = new Set(S.reviews.map(r=>r.weekKey));
+  let n = 0; let d = new Date(now);
+  if(!done.has(weekKey(d))) d.setDate(d.getDate()-7);
+  while(done.has(weekKey(d))){ n++; d.setDate(d.getDate()-7); }
+  return n;
+}
+
+/* ========== 目標設定 ========== */
+function renderGoals(){
+  if(!S.goals.length){ S.goals.push(newGoal()); }
+  if(!curGoalId || !S.goals.find(g=>g.id===curGoalId)) curGoalId = S.goals[0].id;
+  const g = S.goals.find(x=>x.id===curGoalId);
+  // チップ
+  document.getElementById("goalChips").innerHTML =
+    S.goals.map(x=>`<button class="${x.id===curGoalId?'sel':''}" style="color:${gcolor(x)}"
+      onclick="selectGoal('${x.id}')"><span class="dot" style="background:${gcolor(x)}"></span>${esc(x.name||"（名前未設定）")}</button>`).join("")
+    + `<button class="add" onclick="addGoal()">＋ 目標を追加</button>`;
+  document.getElementById("inGoalName").value = g.name || "";
+  document.getElementById("inYearGoal").value = g.yearText || "";
+  document.getElementById("inYearDate").value = g.yearDate || "";
+  renderMonth();
+  document.getElementById("goalsWeekLabel").textContent = "（"+weekRangeLabel(now)+"）";
+  renderGoalRows();
+}
+function stashGoalForm(){ // 画面の入力内容を選択中の目標へ書き戻す（保存はしない）
+  const g = S.goals.find(x=>x.id===curGoalId);
+  if(!g) return;
+  g.name = document.getElementById("inGoalName").value.trim();
+  g.yearText = document.getElementById("inYearGoal").value.trim();
+  g.yearDate = document.getElementById("inYearDate").value;
+  if(g.yearText && !g.setAt) g.setAt = new Date().toISOString();
+  g.monthGoals[editMonth] = document.getElementById("inMonthGoal").value.trim();
+  const old = g.weekGoals[thisWeek] || [];
+  const rows = [...document.querySelectorAll("#weekGoalRows > div")];
+  const goals = rows.map(r=>({
+    what:r.querySelector(".what").value.trim(),
+    count:r.querySelector(".cnt").value.trim(),
+    when:r.querySelector(".whn").value.trim(),
+    done:false,
+  })).filter(x=>x.what);
+  goals.forEach(x=>{ const o = old.find(y=>y.what===x.what); if(o) x.done = o.done; });
+  g.weekGoals[thisWeek] = goals;
+}
+function selectGoal(id){ stashGoalForm(); curGoalId = id; renderGoals(); }
+function addGoal(){
+  stashGoalForm();
+  const g = newGoal(); S.goals.push(g); curGoalId = g.id;
+  renderGoals();
+  document.getElementById("inGoalName").focus();
+}
+function deleteGoal(){
+  const g = S.goals.find(x=>x.id===curGoalId);
+  if(!g) return;
+  if(!confirm("「"+(g.name||"この目標")+"」を削除します。よろしいですか？（振り返りの履歴は残ります）")) return;
+  S.goals = S.goals.filter(x=>x.id!==curGoalId);
+  curGoalId = null; save(); renderGoals();
+}
+function renderMonth(){
+  const [y,m] = editMonth.split("-").map(Number);
+  document.getElementById("monthLabel").textContent = y+"年"+m+"月";
+  const g = S.goals.find(x=>x.id===curGoalId);
+  document.getElementById("inMonthGoal").value = (g && g.monthGoals[editMonth]) || "";
+}
+function moveMonth(dir){
+  const g = S.goals.find(x=>x.id===curGoalId);
+  if(g) g.monthGoals[editMonth] = document.getElementById("inMonthGoal").value.trim();
+  let [y,m] = editMonth.split("-").map(Number);
+  m += dir; if(m<1){m=12;y--;} if(m>12){m=1;y++;}
+  editMonth = y+"-"+String(m).padStart(2,"0");
+  renderMonth();
+}
+function renderGoalRows(){
+  const g = S.goals.find(x=>x.id===curGoalId);
+  const items = (g && g.weekGoals[thisWeek]) || [];
+  const box = document.getElementById("weekGoalRows");
+  box.innerHTML = "";
+  (items.length?items:[{what:"",count:"",when:""}]).forEach(x=>box.appendChild(goalRow(x)));
+}
+function goalRow(g){
+  const div = document.createElement("div");
+  div.innerHTML = `
+    <div class="goal-row">
+      <input type="text" class="what" placeholder="何を（例：提案文を送る）" value="${escAttr(g.what||'')}">
+      <input type="text" class="cnt" placeholder="何件" value="${escAttr(g.count||'')}">
+      <button class="del" onclick="this.closest('div').parentElement.remove()">✕</button>
+    </div>
+    <div style="margin:-2px 0 12px">
+      <input type="text" class="whn" placeholder="いつ・どこで（例：月曜9〜10時に◯◯サイトで）" value="${escAttr(g.when||'')}" style="font-size:14px;padding:9px 12px;">
+    </div>`;
+  return div;
+}
+function addGoalRow(){
+  document.getElementById("weekGoalRows").appendChild(goalRow({}));
+}
+function saveGoals(){
+  stashGoalForm();
+  save();
+  go("home");
+}
+
+/* ========== 振り返り ========== */
+function renderReview(){
+  document.getElementById("reviewWeekLabel").textContent = "（"+weekRangeLabel(now)+"）";
+  const done = S.reviews.find(r=>r.weekKey===thisWeek);
+  // STEP0：目標ごとの%スライダー
+  const pctBox = document.getElementById("rvPctList");
+  if(!S.goals.length){
+    pctBox.innerHTML = '<div class="empty">目標がまだありません。「目標」タブで作りましょう。</div>';
+  } else {
+    pctBox.innerHTML = S.goals.map(g=>{
+      const items = g.weekGoals[thisWeek]||[];
+      const auto = items.length ? Math.round(items.filter(x=>x.done).length/items.length*100) : 0;
+      const val = (done && done.perGoal[g.id]) ? done.perGoal[g.id].pct : auto;
+      return `<div class="goal-label" style="color:${gcolor(g)}"><span class="dot" style="background:${gcolor(g)}"></span>${esc(g.name||"目標")}</div>
+        <div class="slider-row">
+          <input type="range" min="0" max="100" step="5" value="${val}" data-goal="${g.id}"
+            oninput="this.nextElementSibling.textContent=this.value+'%'" style="accent-color:${gcolor(g)}">
+          <span class="pct" style="color:${gcolor(g)}">${val}%</span>
+        </div>`;
+    }).join("");
+  }
+  // STEP5：目標ごとのメモ
+  const noteBox = document.getElementById("rvNoteList");
+  noteBox.innerHTML = S.goals.map(g=>{
+    const val = (done && done.perGoal[g.id]) ? (done.perGoal[g.id].note||"") : "";
+    const tid = "rvNote_"+g.id;
+    return `<div class="goal-label" style="color:${gcolor(g)}"><span class="dot" style="background:${gcolor(g)}"></span>${esc(g.name||"目標")}</div>
+      <div class="ta-wrap">
+        <textarea class="sm" id="${tid}" placeholder="例：提案10件中4件送付。水曜にも送る枠を作る">${esc(val)}</textarea>
+        <button class="mic" onclick="mic(this,'${tid}')">🎤</button>
+      </div>`;
+  }).join("");
+  // 共通4問（保存済みなら復元）
+  if(done){ ["1","2","3","4"].forEach(n=>{ document.getElementById("rvQ"+n).value = done["q"+n]||""; }); }
+}
+function saveReview(){
+  const perGoal = {};
+  document.querySelectorAll("#rvPctList input[type=range]").forEach(sl=>{
+    perGoal[sl.dataset.goal] = { pct:Number(sl.value), note:"" };
+  });
+  S.goals.forEach(g=>{
+    const ta = document.getElementById("rvNote_"+g.id);
+    if(perGoal[g.id]) perGoal[g.id].note = ta ? ta.value.trim() : "";
+  });
+  const rec = {
+    weekKey: thisWeek,
+    range: weekRangeLabel(now),
+    date: new Date().toISOString(),
+    q1: document.getElementById("rvQ1").value.trim(),
+    q2: document.getElementById("rvQ2").value.trim(),
+    q3: document.getElementById("rvQ3").value.trim(),
+    q4: document.getElementById("rvQ4").value.trim(),
+    perGoal: perGoal,
+  };
+  S.reviews = S.reviews.filter(r=>r.weekKey!==thisWeek);
+  S.reviews.push(rec);
+  save();
+  const pcts = Object.values(perGoal).map(x=>x.pct);
+  const avg = pcts.length ? Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length) : 0;
+  const msgs = avg>=100
+    ? ["プロセス目標100%！これを毎週の当たり前にしていこう。","完璧です。この積み重ねが必ず結果になります。"]
+    : ["振り返りができた時点で、今週は成功のもとになりました。","大事なのは戻ってくること。来週は100%を狙おう！"];
+  document.getElementById("cheerMsg").textContent =
+    msgs[Math.floor(Math.random()*msgs.length)] + "\nお疲れさまでした。次は来週のプロセス目標を決めましょう。";
+  document.getElementById("cheer").classList.add("show");
+}
+function closeCheer(){
+  document.getElementById("cheer").classList.remove("show");
+  ["1","2","3","4"].forEach(n=>document.getElementById("rvQ"+n).value="");
+  go("goals");
+}
+
+/* ========== 履歴 ========== */
+function renderHistory(){
+  const list = [...S.reviews].sort((a,b)=>b.weekKey.localeCompare(a.weekKey));
+  const box = document.getElementById("historyList");
+  if(!list.length){ box.innerHTML = '<div class="empty">まだ振り返りがありません。<br>最初の1回を今週やってみましょう！</div>'; return; }
+  const Q = {q1:"🎉 できたこと",q2:"💡 気づき・学び",q3:"🚀 新しいチャレンジ",q4:"🔄 やり直すなら"};
+  box.innerHTML = list.map(r=>{
+    const pcts = Object.values(r.perGoal||{}).map(x=>x.pct);
+    const avg = pcts.length ? Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length) : 0;
+    const perGoalHtml = Object.entries(r.perGoal||{}).map(([gid,v])=>{
+      const g = S.goals.find(x=>x.id===gid);
+      const name = g ? (g.name||"目標") : "（削除された目標）";
+      const col = g ? gcolor(g) : "#999";
+      return `<h4 style="color:${col}">📈 ${esc(name)}：${v.pct}%</h4>${v.note?`<p>${esc(v.note)}</p>`:""}`;
+    }).join("");
+    return `<details class="rev">
+      <summary><span>${r.weekKey.replace("-W","年 第")}週（${esc(r.range||"")}）</span>
+        <span class="badge-pct ${avg>=100?'full':'part'}">${avg}%</span></summary>
+      <div class="body">
+        ${perGoalHtml}
+        ${Object.keys(Q).map(k=>r[k]?`<h4>${Q[k]}</h4><p>${esc(r[k])}</p>`:"").join("")}
+      </div>
+    </details>`;
+  }).join("");
+}
+
+/* ========== 音声入力（Web Speech API） ========== */
+let rec = null, recBtn = null;
+function mic(btn, targetId){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ alert("このブラウザは音声入力に対応していません。ChromeまたはSafariでお試しください。"); return; }
+  if(rec){ rec.stop(); return; }
+  const ta = document.getElementById(targetId);
+  rec = new SR();
+  rec.lang = "ja-JP"; rec.continuous = true; rec.interimResults = false;
+  recBtn = btn; btn.classList.add("on"); btn.textContent = "⏹";
+  rec.onresult = e=>{
+    for(let i=e.resultIndex; i<e.results.length; i++){
+      if(e.results[i].isFinal){
+        ta.value = (ta.value ? ta.value.replace(/\s*$/,"") + "\n" : "") + e.results[i][0].transcript.trim();
+      }
+    }
+  };
+  rec.onend = ()=>{ if(recBtn){recBtn.classList.remove("on"); recBtn.textContent="🎤";} rec=null; recBtn=null; };
+  rec.onerror = rec.onend;
+  rec.start();
+}
+
+/* ========== util ========== */
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function escAttr(s){ return esc(s).replace(/'/g,"&#39;"); }
+
+renderHome();
+</script>
+</body>
+</html>

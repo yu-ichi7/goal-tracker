@@ -118,6 +118,11 @@
   /* メモ */
   .btn-fab{display:block; width:100%; border:none; border-radius:14px; padding:14px;
     font-size:15px; font-weight:700; cursor:pointer; background:var(--blue-soft); color:var(--blue); margin-bottom:14px;}
+  .missed{background:#fff4e0; border:1px solid #ffd9a0; border-radius:16px; padding:14px 16px; margin-bottom:14px;}
+  .missed .mtitle{font-size:14.5px; font-weight:800; color:#c8791a; margin-bottom:4px;}
+  .missed .mtext{font-size:13px; color:#9c7638; line-height:1.6; margin-bottom:10px;}
+  .missed button{border:none; background:var(--accent); color:#fff; border-radius:11px;
+    padding:10px 16px; font-size:14px; font-weight:800; cursor:pointer; width:100%;}
   .memo-item{border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; background:var(--card);}
   .memo-item .meta{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
   .memo-item .when{font-size:11.5px; color:var(--sub); font-weight:700;}
@@ -137,6 +142,7 @@
 
 <!-- ===== ホーム ===== -->
 <div class="page act" id="page-home">
+  <div id="homeMissedBanner"></div>
   <div id="homeGoalCards"></div>
   <div class="card">
     <h2>📝 今週のプロセス目標 <span class="muted" id="homeWeekLabel"></span></h2>
@@ -219,8 +225,13 @@
 <!-- ===== 振り返り ===== -->
 <div class="page" id="page-review">
   <div class="card">
-    <h2>📝 今週の振り返り <span class="muted" id="reviewWeekLabel"></span></h2>
-    <div class="muted">週1回、上から順に答えるだけ。🎤ボタンで音声入力もできます。</div>
+    <h2 id="reviewTitle">📝 今週の振り返り</h2>
+    <div class="month-nav" style="margin:4px 0 10px">
+      <button onclick="moveReviewWeek(-1)">‹</button>
+      <span class="m" id="reviewWeekLabel"></span>
+      <button id="reviewNextBtn" onclick="moveReviewWeek(1)">›</button>
+    </div>
+    <div class="muted" id="reviewWeekNote">週1回、上から順に答えるだけ。🎤ボタンで音声入力もできます。</div>
     <div id="reviewMemoRef"></div>
 
     <div class="step">
@@ -362,6 +373,7 @@ const now = new Date();
 const thisWeek = weekKey(now);
 let editMonth = monthKey(now);
 let curGoalId = null; // 目標タブで選択中
+let reviewWeekDate = new Date(now); // 振り返り対象の週（内部の任意の1日）
 
 /* ========== やる気の出る言葉 ========== */
 const QUOTES = [
@@ -402,6 +414,7 @@ function go(p){
 /* ========== ホーム ========== */
 function renderHome(){
   document.getElementById("quoteBox").textContent = "💬 " + weekQuote();
+  renderMissedBanner();
   const box = document.getElementById("homeGoalCards");
   if(!S.goals.length){
     box.innerHTML = '<div class="card"><h2>🎯 目標</h2><div class="empty">まだ目標がありません。<br>「目標」タブから最初の目標を作りましょう！</div></div>';
@@ -466,6 +479,25 @@ function streak(){
   if(!done.has(weekKey(d))) d.setDate(d.getDate()-7);
   while(done.has(weekKey(d))){ n++; d.setDate(d.getDate()-7); }
   return n;
+}
+function jumpReviewWeek(weeksAgo){
+  const d = new Date(now); d.setDate(d.getDate() - weeksAgo*7);
+  reviewWeekDate = d;
+  go("review");
+}
+function renderMissedBanner(){
+  const box = document.getElementById("homeMissedBanner");
+  box.innerHTML = "";
+  const reviewed = new Set(S.reviews.map(r=>r.weekKey));
+  const hasHistory = S.reviews.length>0 || S.goals.some(g=>Object.keys(g.weekGoals||{}).length>0);
+  if(!hasHistory) return; // 使い始めは出さない
+  const d = new Date(now); d.setDate(d.getDate() - 7); // 先週
+  if(reviewed.has(weekKey(d))) return; // 先週は振り返り済み
+  box.innerHTML = `<div class="missed">
+    <div class="mtitle">⏰ 先週の振り返りがまだです</div>
+    <div class="mtext">${esc(weekRangeLabel(d))} の週。やり忘れても大丈夫、今からでも取り戻せます。</div>
+    <button onclick="jumpReviewWeek(1)">先週を振り返る →</button>
+  </div>`;
 }
 
 /* ========== 目標設定 ========== */
@@ -604,14 +636,39 @@ function renderMemoList(){
 }
 
 /* ========== 振り返り ========== */
+function reviewWeekBounds(){
+  // 対象週の月曜0:00〜翌月曜0:00
+  const d = new Date(reviewWeekDate); d.setHours(0,0,0,0);
+  const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay()+6)%7));
+  const next = new Date(mon); next.setDate(mon.getDate()+7);
+  return [mon, next];
+}
+function moveReviewWeek(dir){
+  const d = new Date(reviewWeekDate);
+  d.setDate(d.getDate() + dir*7);
+  // 未来の週は振り返れない（今週まで）
+  if(weekKey(d) > thisWeek) return;
+  reviewWeekDate = d;
+  renderReview();
+}
 function renderReview(){
-  document.getElementById("reviewWeekLabel").textContent = "（"+weekRangeLabel(now)+"）";
-  const done = S.reviews.find(r=>r.weekKey===thisWeek);
-  // 今週分のメモを参照表示
-  const weekNotes = (S.notes||[]).filter(n=>weekKey(n.at)===thisWeek);
+  const rw = weekKey(reviewWeekDate);
+  const isThis = rw === thisWeek;
+  // タイトル・週ナビ
+  document.getElementById("reviewTitle").textContent = isThis ? "📝 今週の振り返り" : "📝 過去の週の振り返り";
+  document.getElementById("reviewWeekLabel").textContent = weekRangeLabel(reviewWeekDate) + (isThis ? "（今週）" : "");
+  document.getElementById("reviewNextBtn").style.visibility = isThis ? "hidden" : "visible";
+  const done = S.reviews.find(r=>r.weekKey===rw);
+  document.getElementById("reviewWeekNote").textContent = done
+    ? "この週は振り返り済みです。内容を直して上書き保存もできます。"
+    : (isThis ? "週1回、上から順に答えるだけ。🎤ボタンで音声入力もできます。"
+              : "やり忘れた週の振り返りです。‹ › で週を移動できます。");
+  // 対象週のメモを参照表示
+  const [mon, next] = reviewWeekBounds();
+  const weekNotes = (S.notes||[]).filter(n=>{ const t=new Date(n.at); return t>=mon && t<next; });
   const refBox = document.getElementById("reviewMemoRef");
   refBox.innerHTML = weekNotes.length
-    ? `<div class="goal-label" style="color:var(--blue)">🗒️ 今週のメモ（振り返りの材料に）</div>`
+    ? `<div class="goal-label" style="color:var(--blue)">🗒️ この週のメモ（振り返りの材料に）</div>`
       + weekNotes.map(n=>{
           const g = n.goalId ? S.goals.find(x=>x.id===n.goalId) : null;
           const tag = g ? `<span class="gtag" style="background:${gcolor(g)}">${esc(g.name||"目標")}</span> ` : "";
@@ -624,7 +681,7 @@ function renderReview(){
     pctBox.innerHTML = '<div class="empty">目標がまだありません。「目標」タブで作りましょう。</div>';
   } else {
     pctBox.innerHTML = S.goals.map(g=>{
-      const items = g.weekGoals[thisWeek]||[];
+      const items = g.weekGoals[rw]||[];
       const auto = items.length ? Math.round(items.filter(x=>x.done).length/items.length*100) : 0;
       const val = (done && done.perGoal[g.id]) ? done.perGoal[g.id].pct : auto;
       return `<div class="goal-label" style="color:${gcolor(g)}"><span class="dot" style="background:${gcolor(g)}"></span>${esc(g.name||"目標")}</div>
@@ -646,10 +703,11 @@ function renderReview(){
         <button class="mic" onclick="mic(this,'${tid}')">🎤</button>
       </div>`;
   }).join("");
-  // 共通4問（保存済みなら復元）
-  if(done){ ["1","2","3","4"].forEach(n=>{ document.getElementById("rvQ"+n).value = done["q"+n]||""; }); }
+  // 共通4問（保存済みなら復元、なければ空に）
+  ["1","2","3","4"].forEach(n=>{ document.getElementById("rvQ"+n).value = done ? (done["q"+n]||"") : ""; });
 }
 function saveReview(){
+  const rw = weekKey(reviewWeekDate);
   const perGoal = {};
   document.querySelectorAll("#rvPctList input[type=range]").forEach(sl=>{
     perGoal[sl.dataset.goal] = { pct:Number(sl.value), note:"" };
@@ -659,8 +717,8 @@ function saveReview(){
     if(perGoal[g.id]) perGoal[g.id].note = ta ? ta.value.trim() : "";
   });
   const rec = {
-    weekKey: thisWeek,
-    range: weekRangeLabel(now),
+    weekKey: rw,
+    range: weekRangeLabel(reviewWeekDate),
     date: new Date().toISOString(),
     q1: document.getElementById("rvQ1").value.trim(),
     q2: document.getElementById("rvQ2").value.trim(),
@@ -668,22 +726,27 @@ function saveReview(){
     q4: document.getElementById("rvQ4").value.trim(),
     perGoal: perGoal,
   };
-  S.reviews = S.reviews.filter(r=>r.weekKey!==thisWeek);
+  S.reviews = S.reviews.filter(r=>r.weekKey!==rw);
   S.reviews.push(rec);
   save();
+  const isThis = rw === thisWeek;
   const pcts = Object.values(perGoal).map(x=>x.pct);
   const avg = pcts.length ? Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length) : 0;
   const msgs = avg>=100
     ? ["プロセス目標100%！これを毎週の当たり前にしていこう。","完璧です。この積み重ねが必ず結果になります。"]
-    : ["振り返りができた時点で、今週は成功のもとになりました。","大事なのは戻ってくること。来週は100%を狙おう！"];
-  document.getElementById("cheerMsg").textContent =
-    msgs[Math.floor(Math.random()*msgs.length)] + "\nお疲れさまでした。次は来週のプロセス目標を決めましょう。";
+    : ["振り返りができた時点で、この週は成功のもとになりました。","大事なのは戻ってくること。次は100%を狙おう！"];
+  const tail = isThis ? "\nお疲れさまでした。次は来週のプロセス目標を決めましょう。"
+                      : "\nやり忘れた週も、こうして取り戻せます。えらい！";
+  document.getElementById("cheerMsg").textContent = msgs[Math.floor(Math.random()*msgs.length)] + tail;
+  document.getElementById("cheer").querySelector("button").textContent = isThis ? "来週の目標を決める →" : "閉じる";
   document.getElementById("cheer").classList.add("show");
 }
 function closeCheer(){
   document.getElementById("cheer").classList.remove("show");
   ["1","2","3","4"].forEach(n=>document.getElementById("rvQ"+n).value="");
-  go("goals");
+  const wasThis = weekKey(reviewWeekDate) === thisWeek;
+  reviewWeekDate = new Date(now); // 対象週を今週に戻す
+  go(wasThis ? "goals" : "home");
 }
 
 /* ========== 履歴 ========== */
